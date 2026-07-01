@@ -1,0 +1,14 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Runtime data directory
+vector_data/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.DS_Store

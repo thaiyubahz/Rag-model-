@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResearchRAG</title>
+<style>
+  :root{
+    --bg:#09090b;
+    --panel:#141417;
+    --panel-2:#1a1a1e;
+    --border:#27272c;
+    --border-soft:#1f1f24;
+    --text:#e8e8ec;
+    --muted:#8a8a94;
+    --muted-2:#5c5c66;
+    --accent:#8b7cf6;
+    --accent-dim:#5b4fc4;
+    --green:#3ddc84;
+    --green-dim:#1e5c3a;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  body{padding:32px 16px 80px;}
+  .wrap{max-width:720px;margin:0 auto;}
+
+  /* header */
+  .header{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:13px;color:var(--muted);margin-bottom:18px;}
+  .logo-badge{width:26px;height:26px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text);background:var(--panel);}
+  .header .title{color:var(--text);font-weight:600;font-size:14px;margin-right:4px;}
+  .dot-sep{color:var(--muted-2);}
+  .header .stat b{color:var(--text);font-weight:600;}
+
+  .topline{height:2px;background:linear-gradient(90deg,var(--accent),var(--accent-dim) 60%,transparent);border-radius:2px;margin-bottom:26px;}
+
+  /* pipeline nav */
+  .pipeline-nav{display:flex;justify-content:space-between;margin-bottom:34px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--muted-2);}
+  .pipeline-nav .step{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;position:relative;}
+  .pipeline-nav .step .pdot{width:7px;height:7px;border-radius:50%;background:var(--muted-2);}
+  .pipeline-nav .step.active .pdot{background:var(--accent);box-shadow:0 0 0 4px rgba(139,124,246,.15);}
+  .pipeline-nav .step.active{color:var(--accent);}
+
+  /* section headers */
+  .sec-head{display:flex;align-items:center;gap:10px;margin:8px 0 14px;}
+  .sec-head .num{font-family:var(--mono);font-size:11px;color:var(--muted-2);}
+  .sec-head h2{font-size:15px;margin:0;font-weight:600;}
+  .sec-head .rule{flex:1;height:1px;background:var(--border-soft);}
+  .sec-head .collapse{font-family:var(--mono);color:var(--muted-2);cursor:pointer;font-size:14px;}
+
+  /* dropzone */
+  .dropzone{border:1px dashed var(--border);border-radius:10px;padding:38px 20px;text-align:center;cursor:pointer;transition:border-color .15s;background:var(--panel);margin-bottom:14px;}
+  .dropzone:hover, .dropzone.drag{border-color:var(--accent-dim);}
+  .dropzone .icon{font-size:26px;color:var(--muted);margin-bottom:10px;}
+  .dropzone .main{font-size:14px;font-weight:600;}
+  .dropzone .main b{font-weight:700;color:var(--text);}
+  .dropzone .sub{font-size:12px;color:var(--muted);margin-top:4px;}
+  .dropzone .filename{font-size:12px;color:var(--accent);margin-top:8px;font-family:var(--mono);}
+
+  label.field-label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--muted-2);margin-bottom:8px;text-transform:uppercase;}
+
+  input[type=text], textarea, input[type=number]{
+    width:100%;background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:12px 14px;font-family:var(--sans);font-size:14px;outline:none;
+  }
+  input[type=text]::placeholder, textarea::placeholder{color:var(--muted-2);}
+  input[type=text]:focus, textarea:focus, input[type=number]:focus{border-color:var(--accent-dim);}
+  textarea{resize:vertical;min-height:90px;line-height:1.5;}
+  .field{margin-bottom:14px;}
+
+  .status-ok{background:rgba(61,220,132,.08);border:1px solid var(--green-dim);color:var(--green);
+    border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
+  .status-ok.show{display:block;}
+  .status-err{background:rgba(255,90,90,.08);border:1px solid #6b2b2b;color:#ff8a8a;
+    border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
+  .status-err.show{display:block;}
+
+  button{cursor:pointer;font-family:var(--sans);}
+  .btn-primary{
+    width:100%;padding:13px;border-radius:8px;border:1px solid var(--border);
+    background:var(--panel-2);color:var(--text);font-weight:600;font-size:14px;
+    transition:background .15s,border-color .15s;
+  }
+  .btn-primary:hover:not(:disabled){border-color:var(--accent-dim);background:#1c1c22;}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+
+  /* library */
+  .lib-row{display:flex;align-items:center;gap:10px;padding:13px 14px;background:var(--panel);
+    border:1px solid var(--border-soft);border-radius:8px;margin-bottom:8px;font-size:13px;}
+  .lib-row .sq{font-family:var(--mono);color:var(--muted-2);font-size:12px;}
+  .lib-row .name{flex:1;}
+  .lib-row .count{color:var(--muted);font-family:var(--mono);font-size:12px;}
+  .lib-row .rm{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:transparent;
+    color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .lib-row .rm:hover{border-color:#6b2b2b;color:#ff8a8a;}
+  .lib-empty{color:var(--muted-2);font-size:13px;font-family:var(--mono);padding:14px 0;}
+
+  .query-divider{display:flex;align-items:center;gap:12px;margin:36px 0 26px;}
+  .query-divider .rule{flex:1;height:1px;background:var(--border-soft);}
+  .query-divider span{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--muted-2);}
+
+  .topk-row{display:flex;align-items:flex-start;gap:16px;margin-bottom:14px;}
+  .topk-row input{width:70px;text-align:center;}
+  .topk-row .help{font-size:12px;color:var(--muted);line-height:1.5;padding-top:12px;}
+
+  /* pipeline steps */
+  .pstep{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--border-soft);}
+  .pstep:last-child{border-bottom:none;}
+  .pstep .circ{width:24px;height:24px;border-radius:50%;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted-2);flex-shrink:0;}
+  .pstep.done .circ{border-color:var(--green-dim);background:rgba(61,220,132,.08);color:var(--green);}
+  .pstep .ptitle{font-size:13px;font-weight:600;color:var(--muted);}
+  .pstep.done .ptitle{color:var(--green);}
+  .pstep .psub{font-size:12px;color:var(--muted-2);margin-top:2px;}
+
+  /* output */
+  .output-box{border-left:2px solid var(--accent-dim);background:var(--panel);border-radius:0 8px 8px 0;
+    padding:20px 22px;font-size:14px;line-height:1.8;white-space:pre-wrap;color:#d6d6dc;min-height:60px;}
+  .output-box:empty::before{content:"Nothing generated yet — describe your research above and run the pipeline.";color:var(--muted-2);font-family:var(--mono);font-size:12px;}
+  .output-box .cite{color:var(--accent);}
+
+  .sources-label{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--muted-2);margin:22px 0 10px;text-transform:uppercase;}
+  .src-card{background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;padding:14px 16px;margin-bottom:8px;}
+  .src-card .idx{color:var(--accent);font-family:var(--mono);font-size:12px;margin-right:6px;}
+  .src-card .stitle{font-weight:600;font-size:13px;}
+  .src-card .smeta{font-size:11px;color:var(--muted-2);font-family:var(--mono);margin-top:3px;}
+  .src-card .sexcerpt{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6;white-space:pre-wrap;max-height:220px;overflow-y:auto;border-top:1px solid var(--border-soft);padding-top:8px;}
+  .src-card .sexcerpt::-webkit-scrollbar{width:4px;}
+  .src-card .sexcerpt::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+  .bottom-actions{display:flex;gap:10px;margin-top:20px;}
+  .bottom-actions button{flex:0 0 auto;padding:10px 18px;border-radius:8px;border:1px solid var(--border);
+    background:var(--panel-2);color:var(--text);font-size:13px;font-weight:600;}
+  .bottom-actions button:hover{border-color:var(--accent-dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="logo-badge">§</div>
+    <span class="title">ResearchRAG</span>
+    <span class="dot-sep">•</span>
+    <span class="stat"><b id="paperCount">0</b> papers</span>
+    <span class="dot-sep">•</span>
+    <span class="stat"><b id="chunkCount">0</b> chunks indexed</span>
+  </div>
+  <div class="topline"></div>
+
+  <div class="pipeline-nav">
+    <div class="step" id="nav-ingest"><div class="pdot"></div>INGEST</div>
+    <div class="step" id="nav-retrieve"><div class="pdot"></div>RETRIEVE</div>
+    <div class="step" id="nav-generate"><div class="pdot"></div>GENERATE</div>
+    <div class="step" id="nav-output"><div class="pdot"></div>OUTPUT</div>
+  </div>
+
+  <!-- 01 Upload -->
+  <div class="sec-head"><span class="num">01</span><h2>Upload a paper</h2><div class="rule"></div></div>
+
+  <div class="dropzone" id="dropzone">
+    <div class="icon">▤</div>
+    <div class="main"><b>Choose a PDF</b> or drag it here</div>
+    <div class="sub">Text is extracted, chunked, and embedded automatically</div>
+    <div class="filename" id="filename"></div>
+  </div>
+  <input type="file" id="fileInput" accept="application/pdf" style="display:none">
+
+  <div class="field">
+    <label class="field-label">Paper title</label>
+    <input type="text" id="titleInput" placeholder="e.g. Attention Is All You Need (2017)">
+  </div>
+
+  <div class="status-ok" id="ingestOk"></div>
+  <div class="status-err" id="ingestErr"></div>
+
+  <button class="btn-primary" id="ingestBtn" style="margin-bottom:28px;">Ingest paper</button>
+
+  <!-- Library -->
+  <div class="sec-head"><span class="collapse" id="libToggle">–</span><h2>Library</h2><div class="rule"></div></div>
+  <div id="libraryList"></div>
+
+  <!-- Query divider -->
+  <div class="query-divider"><div class="rule"></div><span>QUERY</span><div class="rule"></div></div>
+
+  <!-- 02 Describe -->
+  <div class="sec-head"><span class="num">02</span><h2>Describe your research</h2><div class="rule"></div></div>
+  <div class="field">
+    <label class="field-label">Ask a question about your documents</label>
+    <textarea id="queryInput" placeholder="e.g. What methodology is used in this paper? Summarize the key findings."></textarea>
+  </div>
+  <div class="topk-row">
+    <div>
+      <label class="field-label">Top-K</label>
+      <input type="number" id="topkInput" value="4" min="1" max="20">
+    </div>
+    <div class="help">Number of chunks retrieved from the FAISS index before generation</div>
+  </div>
+  <div class="status-err" id="queryErr"></div>
+  <button class="btn-primary" id="generateBtn" style="margin-bottom:28px;">Get Answer</button>
+
+  <!-- 03 Pipeline -->
+  <div class="sec-head"><span class="num">03</span><h2>Pipeline</h2><div class="rule"></div></div>
+  <div id="pipelineSteps">
+    <div class="pstep" id="step-embed">
+      <div class="circ">1</div>
+      <div><div class="ptitle">Embedding query</div><div class="psub">Waiting to start.</div></div>
+    </div>
+    <div class="pstep" id="step-retrieve">
+      <div class="circ">2</div>
+      <div><div class="ptitle">FAISS retrieval</div><div class="psub">Waiting to start.</div></div>
+    </div>
+    <div class="pstep" id="step-generate">
+      <div class="circ">3</div>
+      <div><div class="ptitle">Generation</div><div class="psub">Waiting to start.</div></div>
+    </div>
+    <div class="pstep" id="step-complete">
+      <div class="circ">4</div>
+      <div><div class="ptitle">Complete</div><div class="psub">Waiting to start.</div></div>
+    </div>
+  </div>
+
+  <!-- 04 Output -->
+  <div class="sec-head" style="margin-top:28px;"><span class="num">04</span><h2>Answer</h2><div class="rule"></div></div>
+  <div class="output-box" id="outputBox"></div>
+
+  <div class="sources-label" id="sourcesLabel" style="display:none;">Sources retrieved</div>
+  <div id="sourcesList"></div>
+
+  <div class="bottom-actions">
+    <button id="copyBtn">Copy text</button>
+    <button id="clearBtn">Clear</button>
+  </div>
+
+</div>
+
+<script>
+const API = "";
+
+const el = id => document.getElementById(id);
+let selectedFile = null;
+
+// ---------------- Library ----------------
+async function loadLibrary(){
+  const res = await fetch(`${API}/api/library`);
+  const data = await res.json();
+  el("paperCount").textContent = data.paper_count;
+  el("chunkCount").textContent = data.total_chunks;
+
+  const list = el("libraryList");
+  list.innerHTML = "";
+  if (data.papers.length === 0){
+    list.innerHTML = `<div class="lib-empty">No papers indexed yet.</div>`;
+    return;
+  }
+  data.papers.forEach(p => {
+    const row = document.createElement("div");
+    row.className = "lib-row";
+    row.innerHTML = `
+      <span class="sq">§</span>
+      <span class="name">${escapeHtml(p.source)}</span>
+      <span class="count">${p.chunks} chunks</span>
+      <button class="rm" data-source="${escapeHtml(p.source)}">×</button>
+    `;
+    list.appendChild(row);
+  });
+  list.querySelectorAll(".rm").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      await fetch(`${API}/api/library`, {
+        method: "DELETE",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({source: btn.dataset.source})
+      });
+      loadLibrary();
+    });
+  });
+}
+
+el("libToggle").addEventListener("click", () => {
+  const list = el("libraryList");
+  const collapsed = list.style.display === "none";
+  list.style.display = collapsed ? "block" : "none";
+  el("libToggle").textContent = collapsed ? "–" : "+";
+});
+
+// ---------------- Upload / ingest ----------------
+el("dropzone").addEventListener("click", () => el("fileInput").click());
+el("dropzone").addEventListener("dragover", e => { e.preventDefault(); el("dropzone").classList.add("drag"); });
+el("dropzone").addEventListener("dragleave", () => el("dropzone").classList.remove("drag"));
+el("dropzone").addEventListener("drop", e => {
+  e.preventDefault();
+  el("dropzone").classList.remove("drag");
+  if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+});
+el("fileInput").addEventListener("change", e => {
+  if (e.target.files.length) setFile(e.target.files[0]);
+});
+function setFile(file){
+  selectedFile = file;
+  el("filename").textContent = file.name;
+  if (!el("titleInput").value){
+    el("titleInput").value = file.name.replace(/\.pdf$/i, "");
+  }
+}
+
+el("ingestBtn").addEventListener("click", async () => {
+  el("ingestOk").classList.remove("show");
+  el("ingestErr").classList.remove("show");
+
+  if (!selectedFile){
+    showErr("ingestErr", "Choose a PDF file first.");
+    return;
+  }
+  const title = el("titleInput").value.trim() || selectedFile.name;
+
+  setNavActive("nav-ingest");
+  el("ingestBtn").disabled = true;
+  el("ingestBtn").textContent = "Ingesting…";
+
+  try{
+    const form = new FormData();
+    form.append("title", title);
+    form.append("file", selectedFile);
+    const res = await fetch(`${API}/api/ingest`, { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Ingestion failed.");
+
+    el("ingestOk").textContent = `✓ ${data.chunks_indexed} chunks indexed from ${data.title}`;
+    el("ingestOk").classList.add("show");
+    selectedFile = null;
+    el("filename").textContent = "";
+    el("titleInput").value = "";
+    loadLibrary();
+  }catch(err){
+    showErr("ingestErr", err.message);
+  }finally{
+    el("ingestBtn").disabled = false;
+    el("ingestBtn").textContent = "Ingest paper";
+  }
+});
+
+// ---------------- Query / generate ----------------
+el("generateBtn").addEventListener("click", async () => {
+  el("queryErr").classList.remove("show");
+  const query = el("queryInput").value.trim();
+  const topK = parseInt(el("topkInput").value, 10) || 4;
+
+  if (!query){
+    showErr("queryErr", "Describe your research topic first.");
+    return;
+  }
+
+  resetPipeline();
+  setNavActive("nav-retrieve");
+  el("generateBtn").disabled = true;
+  el("generateBtn").textContent = "Generating…";
+
+  setStepDone("step-embed", `Query embedded (384-dim).`);
+
+  try{
+    const res = await fetch(`${API}/api/query`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({query, top_k: topK})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Generation failed.");
+
+    setNavActive("nav-generate");
+    setStepDone("step-retrieve", `Retrieved ${data.pipeline.chunks_retrieved} chunk(s) from ${data.pipeline.papers_used} paper(s).`);
+    setStepDone("step-generate", `Generated from ${data.pipeline.papers_used} source(s).`);
+    setNavActive("nav-output");
+    setStepDone("step-complete", `Pipeline complete.`);
+
+    renderOutput(data.text, data.sources);
+  }catch(err){
+    showErr("queryErr", err.message);
+  }finally{
+    el("generateBtn").disabled = false;
+    el("generateBtn").textContent = "Get Answer";
+  }
+});
+
+function renderOutput(text, sources){
+  el("outputBox").textContent = text;
+  const label = el("sourcesLabel");
+  const list = el("sourcesList");
+  list.innerHTML = "";
+  if (sources.length === 0){
+    label.style.display = "none";
+    return;
+  }
+  label.style.display = "block";
+  sources.forEach(s => {
+    const card = document.createElement("div");
+    card.className = "src-card";
+    const pageMeta = s.page ? ` · page ${s.page}` : '';
+    card.innerHTML = `
+      <div><span class="idx">[${s.index}]</span><span class="stitle">${escapeHtml(s.source)}</span></div>
+      <div class="smeta">Retrieved passage${pageMeta}</div>
+      <div class="sexcerpt">${escapeHtml(s.excerpt)}</div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ---------------- Pipeline UI helpers ----------------
+function resetPipeline(){
+  ["step-embed","step-retrieve","step-generate","step-complete"].forEach(id => {
+    const stepEl = el(id);
+    stepEl.classList.remove("done");
+    stepEl.querySelector(".psub").textContent = "Waiting to start.";
+  });
+  ["nav-ingest","nav-retrieve","nav-generate","nav-output"].forEach(id => el(id).classList.remove("active"));
+}
+function setStepDone(id, subtext){
+  const stepEl = el(id);
+  stepEl.classList.add("done");
+  stepEl.querySelector(".circ").textContent = "✓";
+  stepEl.querySelector(".psub").textContent = subtext;
+}
+function setNavActive(id){
+  el(id).classList.add("active");
+}
+function showErr(id, msg){
+  el(id).textContent = msg;
+  el(id).classList.add("show");
+}
+function escapeHtml(str){
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------------- Bottom actions ----------------
+el("copyBtn").addEventListener("click", () => {
+  const text = el("outputBox").textContent;
+  if (text) navigator.clipboard.writeText(text);
+});
+el("clearBtn").addEventListener("click", () => {
+  el("queryInput").value = "";
+  el("outputBox").textContent = "";
+  el("sourcesList").innerHTML = "";
+  el("sourcesLabel").style.display = "none";
+  resetPipeline();
+});
+
+el("generateBtn").textContent = "Get Answer";
+
+// ---------------- Init ----------------
+loadLibrary();
+</script>
+</body>
+</html>
