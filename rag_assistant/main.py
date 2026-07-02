@@ -15,7 +15,9 @@ from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
 
 from vector_store import get_vector_store
 from pdf_processor import process_pdf
@@ -119,3 +121,13 @@ def query(req: QueryRequest):
             "papers_used": len({c["source"] for c in retrieved}),
         },
     }
+
+
+# ----------------------------------------------------------------------
+# Static frontend (for local development)
+# ----------------------------------------------------------------------
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+def index():
+    return FileResponse("static/index.html")
